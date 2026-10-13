@@ -1,0 +1,15 @@
+## Interface: 11200
+## Title: Skull EPGP Officer
+## Notes: EPGP officer tools: JSON import/export, raid-warning loot announcements, MIN/NEED/MAX bid and roll tracking.
+## Author: Xck
+## Version: 1.2.0
+## SavedVariables: SkullEPGP_DB
+
+Json.lua
+Core.lua
+Auction.lua
+Trade.lua
+Sync.lua
+UI.lua
+MinimapButton.lua
+Commands.lua

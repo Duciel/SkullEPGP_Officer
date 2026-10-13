@@ -1,0 +1,85 @@
+# Skull EPGP Officer (WoW 1.12)
+
+**Officer** addon to run an EPGP loot system:
+- JSON import / export (sync with the Google Doc)
+- announce an item in **raid warning** with a timer
+- automatic tracking of **MIN / NEED / MAX** bids (raid/party chat) and **/roll**s
+- ranking, awarding, automatic GP deduction, log
+
+## Installation
+Copy the `SkullEPGP_Officer` folder into `Interface/AddOns/`.
+
+## Officer mode and synchronisation
+- The addon only works while the loot method is **Master Looter**, for the **master looter** and the **group (raid) leader**. Everybody else can keep it installed: loot events, chat tracking, commands and the window do nothing and a message explains why. The mode is re-checked every 2 seconds and on leader / loot-method changes (chat message "Officer mode ON / OFF"). When you are **not in a group** it stays usable, so you can import and edit values before the raid.
+- **Manual switch**: right-click the minimap button (or `/epgp off` / `/epgp on`) to disable the addon completely, e.g. to play master looter without EPGP. The setting is saved; the button turns grey while it is off.
+- The two officers (master looter + leader) **keep the priorities in sync** automatically through addon messages: every EP/GP change (award, trade done, edits, raid EP), imports, costs / base GP and the award log are sent to the other officer; the newest revision of each player wins. When you log in, reload, become an officer or someone joins the group, the addon asks the other officer for newer data. Only messages sent by the group leader or the master looter are accepted.
+- The award log is shared too, so either officer can export the JSON for the Google Sheet. (Log entries made before a reload or before the other officer was in the group are not re-sent.)
+
+## Opening the window
+- Command: `/epgp` (or `/skullepgp`) opens / closes the window.
+- Minimap button: click to open / close, drag to move it.
+  `/epgp minimap off` hides it, `/epgp minimap on` shows it again.
+- The window is **resizable** (drag the grip in the bottom-right corner) and movable. Size and position are saved.
+  `/epgp reset` restores the default size and position.
+
+## Award rules
+1. Tier: **MAX > NEED > MIN > plain /roll**
+2. Same tier: highest **PR = EP / (GP + base GP)** wins (base GP = 0 by default; the Google Sheet uses 10: set it with `/epgp basegp 10` or the `"baseGP":10` key of the imported JSON; the denominator never goes below 1)
+3. Still tied: best /roll (1-100, only the first roll counts), then first to bid
+- **One choice per announcement**: MIN, NEED, MAX or a plain /roll. Once chosen it cannot be changed; the only exception is upgrading **NEED to MAX**. A /roll after a bid, or a bid after a /roll, is ignored (the officer sees a short notice). Since bidders do not roll, ties between equal PR bids go to whoever bid first.
+- Only messages that are **exactly** `min`, `need` or `max` count (case and trailing punctuation ignored).
+- Characters can be alts: `"alts":["Alt1"]` or `"Main/Alt1"` -> the main's priority applies.
+- Costs: MIN 5 / NEED 15 / MAX 45 (change with `/epgp cost NEED 20`, or the `costs` key of an imported JSON).
+- A winner by plain roll pays nothing.
+
+## Usage
+- Open a corpse as Master Looter: the window opens with the items. Only items of the **minimum quality** or better are listed (Epic by default): change it with the **Min quality** drop-down list in the Loot tab (the active quality is also shown in the tab header) or `/epgp quality <0-5>` (0 Poor, 1 Common, 2 Uncommon, 3 Rare, 4 Epic, 5 Legendary).
+- **Auto-loot** (master looter, checkbox in the Loot tab or `/epgp autoloot on|off`): when you open a corpse, every item **below** the minimum quality and the **coins** are taken automatically, except bind-on-pickup / soulbound / quest items, which stay in the window. Hold **SHIFT** while opening the corpse to skip it. Taking coins needs SuperWoW (`LootSlot(slot, 1)`); without it the addon tries a plain `LootSlot`.
+- The addon window opens automatically when the corpse holds at least one item of the minimum quality or better (master looter, or raid leader / assistant). `/epgp auto off` disables that.
+- **Announce** -> raid warning + timer (duration is adjustable). Reminders in raid chat: "10 seconds left", then 2 and 1 as separate messages.
+- When bidding ends the top 3 are posted in the raid. Click a row to pick another winner, then **Award** (asks for confirmation).
+  GP is added to the winner and the item is given automatically if the loot window is open (Master Looter).
+- **Several identical drops** (e.g. 2 copies) are shown on one line with `x2`. Announce them once: the ranking is shared, and each click on **Award** gives one copy to the selected player (default: the top of the ranking). The winner leaves the ranking for the next copy; the line shows `x1`, then disappears when all copies are awarded. The same player cannot win twice.
+- **Take** button (next to Announce, master looter): picks the item up into your own bags so you can trade it to the winner later. The line stays in the list with a blue "(in bags)" tag until it is awarded. Opening another corpse **adds** its items to the list instead of replacing it. Each corpse is identified (with SuperWoW, by the GUID of the dead target / mouseover unit, returned as the 2nd value of `UnitExists`), so closing and reopening the same corpse never duplicates its items. Without SuperWoW, or when the loot is not a dead unit (chest...), all such sources share one key: a rescan then replaces the previous content. Items in your bags are kept, even after `/reload`. When you award an item that is in your bags, the addon tells you to trade it. `/epgp clear` empties the list.
+- The small **x** at the left of each item removes it (all copies) from the list of items to announce; it does not come back when the same corpse is reopened.
+- The **Take** buttons are greyed out as soon as the loot window is closed (and when you are not the master looter).
+- **Trade timer**: for bind-on-pickup items, a 10-minute timer starts when you take the item into your bags (shown as a live m:ss countdown next to the item and in the Trades tab; items that are not bind-on-pickup get no timer; chat warning at 2 minutes and when it expires).
+- **Trades tab**: when you **Award** an item that is in your bags (not given directly from the corpse) to someone else, it moves to the **Trades** tab with the winner's name. **GP is not applied yet**: it is applied (and the award logged, priorities broadcast) once the trade is done. The addon detects a completed trade with the winner automatically: from the `Trade complete.` message, or - if the client does not show it - by checking after the trade window closes that the item really left your bags. `/epgp debug` prints the trade events and what was detected; **Trade** opens the trade window with the winner (group member in range) and puts the item in it - you still accept the trade yourself; **Done** applies it manually, **Cancel** puts the item back in the loot list without GP. If the winner is you, or the item was given straight from the corpse, GP is applied at once. The list is saved across `/reload`.
+- **Synchronize** button (Import / Export tab, or `/epgp sync`): sends every player's priority and the prices to the group. It is done automatically after an import, an edit, raid EP or an award. Players whose priority is unknown ask for it by themselves (silent addon message, repeated every 30 s while they are in a group; you answer "not in the list" to players missing from the EPGP list).
+- If you are not the master looter: `/epgp announce [shift-click item] [seconds]`.
+
+## Loot detection troubleshooting
+- `/epgp scan` re-reads the open loot window (also the **Rescan** button in the Loot tab).
+- `/epgp debug` prints, for every `LOOT_OPENED`, each slot (link, quality) and whether you are detected as master looter.
+  Open a corpse with it enabled and copy the `[debug]` lines if something is wrong.
+
+## JSON format
+Import (also accepted: a bare array, or an object `{"Name":{"ep":..,"gp":..}}`):
+```json
+{"players":[{"name":"Alice","ep":1200,"gp":300,"alts":["AliceAlt"]},{"name":"Bob","ep":800.5,"gp":90}],
+ "costs":{"MIN":5,"NEED":15,"MAX":45},"baseGP":10}
+```
+Export: same structure + `pr` (priority) per player + `log` (awards and adjustments **since the last import**,
+with `item`, `itemId`, `bid`, `roll`, `gp`) to update the Google Doc. The JSON must fit on **a single line**.
+Import: "replace all" (the Google Doc is the reference) or "update" (keeps players missing from the JSON).
+
+## Commands
+`/epgp announce [item] [xN] [seconds]` `close` `cancel` `award [player]` `bid <player> <MIN|NEED|MAX>` `show <player>`
+`set <player> <ep> <gp>` `ep <player> <+/-n>` `gp <player> <+/-n>` `raidep <n>` `remove <player>`
+`autoloot [on|off]` `minimap [on|off]` `publish` `cost <MIN|NEED|MAX> <n>` `basegp <n>` `duration <s>` `quality <0-5>` `auto <on|off>`
+`scan` `clear` `debug` `reset`
+
+## Addon protocol (used by the SkullEPGP_Player addon)
+Prefix `SKULLEPGP`, channel RAID/PARTY (replies to `REQ` go to the group too: 1.12 has no whisper addon channel). Fields are separated by `;`, the item link is always last:
+| Message | Meaning |
+|---|---|
+| `AUC;<id>;<seconds left>;<copies>;<link>` | bidding open (`copies` = number of identical items to award) |
+| `BID;<id>;<char>;<MIN\|NEED\|MAX\|ROLL>;<roll>;<pr>` | a bid / roll was accepted (the player addon lists them) |
+| `CFG;<MIN>;<NEED>;<MAX>;<baseGP>` | prices and base GP (broadcast with the priorities, and on change) |
+| `END;<id>` | bidding closed |
+| `CAN;<id>` | bidding cancelled |
+| `WIN;<id>;<character>;<MIN\|NEED\|MAX\|ROLL>;<cost>` | item awarded |
+| `P;<Main/Alt>,<ep>,<gp>;...` | priorities (`/epgp publish`, or after an award) |
+| `S?;...` (officer <-> officer) | priority synchronisation (`SU`, `SD`, `SF`, `SP`, `SE`, `SC`, `SL`, `SQ`), see Sync.lua |
+| `NP;<name>` | answer to `REQ`: this player is not in the EPGP list |
+| `REQ` (player -> officer) | the officer whispers back the player's `P;` plus `AUC;` if bidding is open |
