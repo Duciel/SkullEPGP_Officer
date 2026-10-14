@@ -383,6 +383,7 @@ function X:DoAward(r)
 	a.remaining = (a.remaining or 1) - 1
 	if a.remaining <= 0 then
 		a.state = "awarded"
+		a.entries = {}                    -- last copy awarded: the list of bidders is cleared
 	else
 		self:Print(string.format("%d more copy(ies) of %s to award: pick the next winner.", a.remaining, a.link))
 	end
