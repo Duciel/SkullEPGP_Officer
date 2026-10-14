@@ -21,6 +21,52 @@ function X:ApplyAward(rec)
 	if d and cost > 0 then self:Publish(nil, rec.main) end
 end
 
+-- Direct assignment (no announcement, no GP): one copy of the loot line "it" goes to the player "char".
+-- Same delivery rules as an award: given from the corpse if the loot window is open, else from the bags
+-- (tracked in the Trades tab until the trade is done). Logged as an AWARD with bid "ASSIGN" and 0 GP.
+function X:AssignItem(it, char)
+	if not self:Active() then self:Print(self.INACTIVE_MSG); return end
+	if not it or not char then return end
+	local given = (it.corpse or 0) > 0 and self:TryGiveLoot(it.link, char)   -- only when a copy is still in a corpse
+	local from, exp
+	if given and (it.corpse or 0) > 0 then self:DecCorpse(it, 1); from = "corpse"
+	elseif table.getn(it.bagExp or {}) > 0 then exp = self:PopBag(it); from = "bags"
+	elseif (it.corpse or 0) > 0 then self:DecCorpse(it, 1); from = "corpse" end
+	if not from then self:Print("Nothing to assign: the item is neither in the open loot window nor in your bags."); return end
+	self:SendChat(string.format("%s => %s (assigned by the master looter)", it.link, char))
+	local rec = { main = self:FindMain(char), char = char, cost = 0, bid = "ASSIGN", link = it.link, exp = exp or 0 }
+	if not given and from == "bags" and string.lower(char) ~= string.lower(UnitName("player")) then
+		self:AddTrade(rec)
+		self:Print(string.format("%s => |cffffd700%s|r: trade it from your bags (Trades tab).", it.link, char))
+	else
+		self:ApplyAward(rec)
+		if not given then
+			if from == "bags" then self:Print("The item is already in your bags.")
+			else self:Print("Item not given automatically (loot window closed): give it manually to |cffffd700" .. char .. "|r.") end
+		end
+	end
+	self:UpdateCounts()
+	self:SavePending()
+	if self.UI then self.UI:RefreshAll() end
+end
+
+-- Names offered by the Assign menu: the master loot candidates when the loot window is open, else the group
+function X:AssignCandidates()
+	local list, seen = {}, {}
+	local function add(n)
+		if n and n ~= "" and not seen[string.lower(n)] then seen[string.lower(n)] = true; table.insert(list, n) end
+	end
+	if self:PlayerIsML() and GetNumLootItems() > 0 then
+		for ci = 1, 40 do add(GetMasterLootCandidate(ci)) end
+	end
+	if table.getn(list) == 0 then
+		for _, n in pairs(self.roster or {}) do add(n) end
+		add(UnitName("player"))
+	end
+	table.sort(list, function(a, b) return string.lower(a) < string.lower(b) end)
+	return list
+end
+
 -- Seconds left before the trade window of a copy closes (nil = no timer)
 function X:TimeLeft(exp)
 	if not exp or exp <= 0 then return nil end

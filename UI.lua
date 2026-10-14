@@ -278,12 +278,89 @@ for i = 1, LOOT_ROWS do
 		GameTooltip:Show()
 	end)
 	row.take:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	row.assign = Button(row, "Assign", 50, 20, function()
+		local it = X.lootItems and X.lootItems[idx]
+		if it then UI:ShowAssignMenu(it, this) end
+	end)
+	row.assign:SetPoint("RIGHT", row.take, "LEFT", -4, 0)
+	row.assign:SetScript("OnEnter", function()
+		GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Assign")
+		GameTooltip:AddLine("Gives one copy directly to a player you pick in the list, without announcing it (no GP). Needs the loot window open (master looter) or the item in your bags.", 1, 1, 1, 1)
+		GameTooltip:Show()
+	end)
+	row.assign:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	row.text = Text(row, "", "GameFontHighlight")
 	row.text:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
-	row.text:SetPoint("RIGHT", row.take, "LEFT", -6, 0)
+	row.text:SetPoint("RIGHT", row.assign, "LEFT", -6, 0)
 	ItemTooltip(row, function() local it = X.lootItems and X.lootItems[idx]; return it and it.link end)
 	row:Hide()
 	lootRows[i] = row
+end
+
+-- Assign menu: one button per candidate, coloured by class
+local ASSIGN_COLS, ASSIGN_BW, ASSIGN_BH = 3, 104, 18
+local assignFrame = CreateFrame("Frame", "SkullEPGPAssignFrame", UIParent)
+assignFrame:SetFrameStrata("DIALOG")
+assignFrame:SetBackdrop({ bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+	tile = true, tileSize = 32, edgeSize = 24, insets = { left = 6, right = 6, top = 6, bottom = 6 } })
+assignFrame:EnableMouse(true)
+assignFrame:Hide()
+table.insert(UISpecialFrames, "SkullEPGPAssignFrame")
+local assignTitle = Text(assignFrame, "", "GameFontNormal", 300, "CENTER")
+assignTitle:SetPoint("TOP", assignFrame, "TOP", 0, -14)
+local assignButtons = {}
+local assignItem
+
+function UI:ShowAssignMenu(it, anchor)
+	if not X:Active() then X:Print(X.INACTIVE_MSG); return end
+	assignItem = it
+	local names = X:AssignCandidates()
+	local n = table.getn(names)
+	local rows = math.max(1, math.ceil(n / ASSIGN_COLS))
+	assignFrame:SetWidth(ASSIGN_COLS * ASSIGN_BW + 28)
+	assignFrame:SetHeight(rows * ASSIGN_BH + 52)
+	assignTitle:SetText("Assign " .. it.link .. " to:")
+	for i = 1, math.max(n, table.getn(assignButtons)) do
+		local b = assignButtons[i]
+		if not b and i <= n then
+			b = CreateFrame("Button", "SkullEPGPAssignBtn" .. i, assignFrame)
+			b:SetWidth(ASSIGN_BW)
+			b:SetHeight(ASSIGN_BH)
+			b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
+			b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+			b.text:SetAllPoints(b)
+			b:SetScript("OnClick", function()
+				local who, item = this.who, assignItem
+				assignFrame:Hide()
+				if who and item then
+					X:Confirm("Assign " .. item.link .. " to " .. who .. "?\nNo announcement, no GP.", function() X:AssignItem(item, who) end)
+				end
+			end)
+			assignButtons[i] = b
+		end
+		if b then
+			if i <= n then
+				b.who = names[i]
+				b.text:SetText(X:ClassColor(names[i]) .. names[i] .. "|r")
+				b:ClearAllPoints()
+				b:SetPoint("TOPLEFT", assignFrame, "TOPLEFT", 14 + math.mod(i - 1, ASSIGN_COLS) * ASSIGN_BW, -34 - math.floor((i - 1) / ASSIGN_COLS) * ASSIGN_BH)
+				b:Show()
+			else
+				b:Hide()
+			end
+		end
+	end
+	local cancel = assignFrame.cancel
+	if not cancel then
+		cancel = Button(assignFrame, "Cancel", 70, 20, function() assignFrame:Hide() end)
+		assignFrame.cancel = cancel
+	end
+	cancel:ClearAllPoints()
+	cancel:SetPoint("BOTTOM", assignFrame, "BOTTOM", 0, 10)
+	assignFrame:ClearAllPoints()
+	assignFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+	assignFrame:Show()
 end
 
 local lootEmpty = Text(p1, "No items (open a corpse, click Rescan, or use /epgp announce [item])", "GameFontDisableSmall")
@@ -471,7 +548,9 @@ function UI:RefreshLoot()
 				if soon then txt = txt .. " |cffffd700(" .. X.FormatLeft(soon - time()) .. ")|r" end
 			end
 			row.text:SetText(txt)
-			if X.lootOpen and ((it.corpses and X.curKey and it.corpses[X.curKey]) or 0) > 0 and X:PlayerIsML() then row.take:Enable() else row.take:Disable() end
+			local inCorpse = X.lootOpen and ((it.corpses and X.curKey and it.corpses[X.curKey]) or 0) > 0 and X:PlayerIsML()
+			if inCorpse then row.take:Enable() else row.take:Disable() end
+			if inCorpse or (it.bags or 0) > 0 then row.assign:Enable() else row.assign:Disable() end
 			row:Show()
 		else
 			row:Hide()
