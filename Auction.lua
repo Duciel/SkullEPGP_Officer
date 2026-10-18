@@ -175,8 +175,16 @@ function X:HandleSystem(msg)
 	if not who then
 		_, _, who, roll, lo, hi = string.find(msg, self.rollPatternFallback)
 	end
-	if who and tonumber(lo) == 1 and tonumber(hi) == 100 then
-		self:RegisterRoll(who, tonumber(roll))
+	if who and tonumber(lo) == 1 then
+		hi = tonumber(hi)
+		if hi == 100 then
+			self:RegisterRoll(who, tonumber(roll))
+		elseif hi and hi > 1 and hi < 100 then
+			-- a roll with a range below 100 (e.g. 1-50) is tracked and ranked as a 100
+			if self:RegisterRoll(who, 100) then
+				self:Print(string.format("%s rolled %d (1-%d): counted as 100.", who, tonumber(roll), hi))
+			end
+		end
 	end
 end
 
