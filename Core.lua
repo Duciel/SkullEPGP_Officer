@@ -535,7 +535,7 @@ end
 -- Bind-on-pickup detection through the loot slot tooltip (same method as RollFor).
 -- Returns true (BoP / soulbound / quest item), false (not bound: safe to take) or nil (tooltip empty: unknown).
 -- Note: a plain grey/white item can have a one-line tooltip (name only), which is "not bound", not "unknown".
-function X:IsBindOnPickup(slot)
+function X:IsBindOnPickup(slot, ignoreQuest)
 	if not self.tip then
 		self.tip = CreateFrame("GameTooltip", "SkullEPGPScanTip", nil, "GameTooltipTemplate")
 	end
@@ -547,7 +547,7 @@ function X:IsBindOnPickup(slot)
 	for i = 2, n do
 		local fs = getglobal("SkullEPGPScanTipTextLeft" .. i)
 		local t = fs and fs:GetText()
-		if t and (t == ITEM_BIND_ON_PICKUP or t == ITEM_SOULBOUND or t == ITEM_BIND_QUEST) then
+		if t and (t == ITEM_BIND_ON_PICKUP or t == ITEM_SOULBOUND or (t == ITEM_BIND_QUEST and not ignoreQuest)) then
 			return true
 		end
 	end
@@ -601,7 +601,7 @@ function X:AutoLootLowQuality()
 		self:Print(msg)
 	end
 	if left > 0 then
-		self:Print(left .. " bind-on-pickup / unknown item(s) below " .. self:QualityLabel(self.db.minQuality) .. " left in the loot window.")
+		self:Print(left .. " bind-on-pickup / unknown item(s) below " .. self:QualityLabel(self.db.minQuality) .. " left in the loot window (listed for distribution).")
 	end
 end
 
@@ -614,7 +614,8 @@ end
 
 -- Reads the open loot window. Like RollFor, an item is any slot that has an item link
 -- (GetLootSlotLink is nil for coins); quality comes from the link colour first.
--- Returns [itemId] = { n = copies, slots = { slot numbers }, link, icon, quality } for items of the minimum quality or better.
+-- Returns [itemId] = { n = copies, slots = { slot numbers }, link, icon, quality } for items of the minimum quality or better,
+-- plus every bind-on-pickup item whatever its quality.
 function X:ReadSlots()
 	local res = {}
 	local n = GetNumLootItems() or 0
@@ -625,7 +626,13 @@ function X:ReadSlots()
 		local q = link and qualityFromLink(link)
 		if q == nil and type(quality) == "number" then q = quality end
 		self:Debug(string.format("  slot %d: link=%s quality=%s (info=%s)", i, tostring(link), tostring(q), tostring(quality)))
-		if link and string.find(link, "|Hitem:") and (q or 0) >= self.db.minQuality then
+		local wanted = link and string.find(link, "|Hitem:") and ((q or 0) >= self.db.minQuality)
+		if link and not wanted and string.find(link, "|Hitem:") then
+			-- below the minimum quality: bind-on-pickup items are listed anyway (they are never auto-looted)
+			wanted = (self:IsBindOnPickup(i, true) == true)
+			if wanted then self:Debug("  slot " .. i .. ": below minimum quality but bind-on-pickup, listed") end
+		end
+		if wanted then
 			local _, _, id = string.find(link, "item:(%d+)")
 			local r = res[id]
 			if not r then

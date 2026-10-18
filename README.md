@@ -55,7 +55,7 @@ Copy the `SkullEPGP_Officer` folder into `Interface/AddOns/`.
 - A winner by plain roll pays nothing.
 
 ## Usage
-- Open a corpse as Master Looter: the window opens with the items. Only items of the **minimum quality** or better are listed (Epic by default): change it with the **Min quality** drop-down list in the Loot tab (the active quality is also shown in the tab header) or `/epgp quality <0-5>` (0 Poor, 1 Common, 2 Uncommon, 3 Rare, 4 Epic, 5 Legendary).
+- Open a corpse as Master Looter: the window opens with the items. Only items of the **minimum quality** or better are listed (Epic by default): change it with the **Min quality** drop-down list in the Loot tab (the active quality is also shown in the tab header) or `/epgp quality <0-5>` (0 Poor, 1 Common, 2 Uncommon, 3 Rare, 4 Epic, 5 Legendary). **Bind-on-pickup / soulbound items are always listed**, whatever their quality (quest items excepted), since auto-loot never takes them.
 - **Auto-loot** (master looter, checkbox in the Loot tab or `/epgp autoloot on|off`): when you open a corpse, every item **below** the minimum quality and the **coins** are taken automatically, except bind-on-pickup / soulbound / quest items, which stay in the window. Hold **SHIFT** while opening the corpse to skip it. Taking coins needs SuperWoW (`LootSlot(slot, 1)`); without it the addon tries a plain `LootSlot`.
 - The addon window opens automatically when the corpse holds at least one item of the minimum quality or better (master looter, or raid leader / assistant). `/epgp auto off` disables that.
 - **Announce** -> raid warning + timer (duration is adjustable). Reminders in raid chat: "10 seconds left", then 2 and 1 as separate messages.
