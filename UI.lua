@@ -588,7 +588,7 @@ function UI:RefreshLoot()
 	end
 	local c = X.db.costs
 	costLabel:SetText(string.format("|cff33cc33MIN %d|r  |cffff8000NEED %d|r  |cffff3333MAX %d|r GP", c.MIN, c.NEED, c.MAX))
-	if not durBox:HasFocus() then durBox:SetText(tostring(X.db.duration)) end
+	if not (GetCurrentKeyBoardFocus and GetCurrentKeyBoardFocus() == durBox) then durBox:SetText(tostring(X.db.duration)) end
 end
 
 function UI:UpdateTimer()

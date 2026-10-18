@@ -2,7 +2,7 @@
 ## Title: Skull EPGP Officer
 ## Notes: EPGP officer tools: JSON import/export, raid-warning loot announcements, MIN/NEED/MAX bid and roll tracking.
 ## Author: Duciel (Initial work from Xck)
-## Version: 1.3.0
+## Version: 1.3.1
 ## SavedVariables: SkullEPGP_DB
 
 Json.lua
