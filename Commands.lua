@@ -18,7 +18,7 @@ local function help()
 	X:Print("  /epgp publish - broadcast priorities to players (player addon)")
 	X:Print("  /epgp cost <MIN|NEED|MAX> <n>  |  /epgp duration <s>  |  /epgp quality <0-5> (0 poor ... 4 epic, 5 legendary)  |  /epgp auto <on|off>")
 	X:Print("  /epgp countdown full|reduced|off - chat countdown during bidding (default full: 10 s text + 3, 2, 1)")
-	X:Print("  /epgp chatbudget <messages> <seconds>  |  chatgap <s>  |  chatstat - chat anti-spam budget of the addon (default 10 messages in 55 s)")
+	X:Print("  /epgp chatbudget <messages> <seconds>  |  chatgap <s>  |  chatstat - chat anti-spam budget of the addon (default 10 messages in 45 s)")
 	X:Print("  /epgp chattest <count> <interval> [same] [say|party|raid|guild] - sends messages to measure the server's mute limit  |  /epgp chattest stop")
 	X:Print("  /epgp autoloot [on|off] - master looter: auto-loot items below the minimum quality + coins (never bind-on-pickup; hold SHIFT to skip)")
 	X:Print("  /epgp off | on - disable / enable the addon by hand (same as right-click on the minimap button)")
@@ -168,7 +168,7 @@ SlashCmdList["SKULLEPGP"] = function(msg)
 			X.db.chatLimit, X.db.chatWindow = l, w
 			X:Print(string.format("Chat budget: at most %d message(s) in any %d second(s)", l, w))
 		else
-			X:Print(string.format("Usage: /epgp chatbudget <messages> <seconds>   (now %d in %d s). Anti-spam: the addon never sends more than this; countdown digits are skipped when the window is nearly full.", X.db.chatLimit or 10, X.db.chatWindow or 55))
+			X:Print(string.format("Usage: /epgp chatbudget <messages> <seconds>   (now %d in %d s). Anti-spam: the addon never sends more than this; countdown digits are skipped when the window is nearly full.", X.db.chatLimit or 10, X.db.chatWindow or 45))
 		end
 
 	elseif cmd == "chatstat" then

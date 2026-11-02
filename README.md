@@ -93,9 +93,9 @@ Import: "replace all" (the Google Doc is the reference) or "update" (keeps playe
 `scan` `clear` `debug` `reset`
 
 ## Chat flood protection
-The server mutes (10 s) a player who sends more than about 11 chat messages in a long window. Measured on one server with `/epgp chattest`: 11 messages go through whatever the speed (all at once, every 1 s, 1.5 s or 3 s) and the 12th is refused; 14 messages one every 5 s are fine. The window is therefore between roughly 33 and 55 seconds.
+The server mutes (10 s) a player who sends more than about 11 chat messages in a long window. Measured on one server with `/epgp chattest`: 11 messages go through whatever the speed (all at once, every 1 s, 1.5 s or 3 s) and the 12th is refused; 14 messages one every 4 s or one every 5 s are fine. The window is therefore between roughly 33 and 44 seconds.
 
-All the chat messages of the addon (announcement, countdown, closing, congratulation) go through a queue with a **sliding-window budget**: at most `limit` messages in any `window` seconds (defaults **10 in 55 s**), at least 0.5 s apart. Every message sent by the character counts, including the ones typed by hand and those of other addons.
+All the chat messages of the addon (announcement, countdown, closing, congratulation) go through a queue with a **sliding-window budget**: at most `limit` messages in any `window` seconds (defaults **10 in 45 s**), at least 0.5 s apart. Every message sent by the character counts, including the ones typed by hand and those of other addons.
 - Important messages (announcement, closing, winner) wait for their turn, in order, when the window is full.
 - A countdown digit is skipped when an important message is waiting or when fewer than 4 slots are left (3 are kept for the closing, the winner and your own chat).
 - `/epgp chatstat` shows how many messages the window holds, `/epgp chatbudget <messages> <seconds>` and `/epgp chatgap <seconds>` change the budget. Tune them to your measurements: the less restrictive, the more risk.

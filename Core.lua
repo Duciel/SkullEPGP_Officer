@@ -32,7 +32,7 @@ local DEFAULTS = {
 	countdown = "full",                  -- chat countdown: "full" (10 s text + 3, 2, 1), "reduced" (10 s text only), "off"
 	chatGap = 0.5,                       -- minimum seconds between two chat messages of the addon
 	chatLimit = 10,                      -- chat budget: at most this many messages in any chatWindow seconds (measured: the server mutes the 12th)
-	chatWindow = 55,                     -- chat budget: length of the sliding window, in seconds (measured: between 33 and 55)
+	chatWindow = 45,                     -- chat budget: length of the sliding window, in seconds (measured: between 33 and 44)
 	costs = { MIN = 5, NEED = 15, MAX = 45 },
 	players = {},
 	log = {},
@@ -457,7 +457,7 @@ function X:ChatGap()
 end
 
 function X:ChatWindow()
-	return (self.db and self.db.chatWindow) or 55
+	return (self.db and self.db.chatWindow) or 45
 end
 
 -- messages sent in the last chatWindow seconds
