@@ -196,6 +196,7 @@ function X:HandleAddon(prefix, text, channel, sender)
 		if self.lastReqExtra and now - self.lastReqExtra < 5 then return end
 		self.lastReqExtra = now
 		self:Comm(self:CfgString())
+		if (self:LootSignature() or "") ~= "" then self:PublishLoot() end
 		local a = self.auction
 		if a and a.state == "open" then
 			local remaining = math.ceil(a.endTime - GetTime())
@@ -398,8 +399,54 @@ end
 -- Timer
 -------------------------------------------------------------------------------
 X.tick = 0
+-------------------------------------------------------------------------------
+-- Pending loot shared with the players ("LL;n" then "LI;itemId;copies;link" for each item).
+-- The list is sent again whenever it changes (new corpse, item removed by hand, awarded, taken...).
+-------------------------------------------------------------------------------
+
+function X:LootShareList()
+	local out = {}
+	for _, it in ipairs(self.lootItems or {}) do
+		local id = it.id
+		if not id then _, _, id = string.find(it.link or "", "item:(%d+)") end
+		if id and it.link and (it.count or 0) > 0 then table.insert(out, { id = id, count = it.count, link = it.link }) end
+	end
+	return out
+end
+
+function X:LootSignature()
+	local t = {}
+	for _, e in ipairs(self:LootShareList()) do table.insert(t, e.id .. ":" .. e.count) end
+	return table.concat(t, ",")
+end
+
+function X:PublishLoot()
+	if not self:Grouped() then return end
+	local list = self:LootShareList()
+	self:Comm("LL;" .. table.getn(list))
+	for _, e in ipairs(list) do
+		self:Comm(string.format("LI;%s;%d;%s", e.id, e.count, e.link))
+	end
+	self.lastLootSig = self:LootSignature()
+end
+
+-- once per second: sends the list when it changed (cheap: a few items at most)
+function X:LootTick(elapsed)
+	self.lootT = (self.lootT or 0) + (elapsed or 0)
+	if self.lootT < 1 or not self.db then return end
+	self.lootT = 0
+	if not self:Grouped() then return end
+	if not self:Active() then
+		-- no longer the one who distributes (disabled, not master looter any more): players forget the list
+		if (self.lastLootSig or "") ~= "" then self:Comm("LL;0"); self.lastLootSig = "" end
+		return
+	end
+	if self:LootSignature() ~= (self.lastLootSig or "") then self:PublishLoot() end
+end
+
 function X:OnUpdate(elapsed)
 	self:StatusTick(elapsed)
+	self:LootTick(elapsed)
 	self:FlushSync(elapsed)
 	self:TradeTick(elapsed)
 	if self.pendingPick then

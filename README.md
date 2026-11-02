@@ -104,5 +104,6 @@ Prefix `SKULLEPGP`, channel RAID/PARTY (replies to `REQ` go to the group too: 1.
 | `WIN;<id>;<character>;<MIN\|NEED\|MAX\|ROLL>;<cost>` | item awarded |
 | `P;<Main/Alt>,<ep>,<gp>;...` | priorities (`/epgp publish`, or after an award) |
 | `S?;...` (officer <-> officer) | priority synchronisation (`SU`, `SD`, `SF`, `SP`, `SE`, `SC`, `SL`, `SQ`), see Sync.lua |
+| `LL;<n>` then `LI;<itemId>;<copies>;<link>` | the list of items still to distribute (n items): sent again whenever it changes (new corpse, item taken / awarded / removed by hand) and as an answer to `REQ`; `LL;0` empties it |
 | `NP;<name>` | answer to `REQ`: this player is not in the EPGP list |
 | `REQ` (player -> officer) | the officer whispers back the player's `P;` plus `AUC;` if bidding is open |
