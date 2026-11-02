@@ -18,8 +18,8 @@ local function help()
 	X:Print("  /epgp publish - broadcast priorities to players (player addon)")
 	X:Print("  /epgp cost <MIN|NEED|MAX> <n>  |  /epgp duration <s>  |  /epgp quality <0-5> (0 poor ... 4 epic, 5 legendary)  |  /epgp auto <on|off>")
 	X:Print("  /epgp countdown full|reduced|off - chat countdown during bidding (default full: 10 s text + 3, 2, 1)")
-	X:Print("  /epgp chatbudget <burst> <per second>  |  chatgap <s>  |  chatstat - chat anti-spam budget of the addon (defaults 8, 0.5, 0.5 s)")
-	X:Print("  /epgp chattest <count> <interval> [same] - sends messages in /say to measure the server's mute limit  |  /epgp chattest stop")
+	X:Print("  /epgp chatbudget <messages> <seconds>  |  chatgap <s>  |  chatstat - chat anti-spam budget of the addon (default 10 messages in 55 s)")
+	X:Print("  /epgp chattest <count> <interval> [same] [say|party|raid|guild] - sends messages to measure the server's mute limit  |  /epgp chattest stop")
 	X:Print("  /epgp autoloot [on|off] - master looter: auto-loot items below the minimum quality + coins (never bind-on-pickup; hold SHIFT to skip)")
 	X:Print("  /epgp off | on - disable / enable the addon by hand (same as right-click on the minimap button)")
 	X:Print("  /epgp minimap [on|off] - show/hide the minimap button")
@@ -163,29 +163,33 @@ SlashCmdList["SKULLEPGP"] = function(msg)
 		else X:Print("Usage: /epgp chatgap <0-5>   (now " .. tostring(X.db.chatGap or 0.5) .. " s)") end
 
 	elseif cmd == "chatbudget" then
-		local b, r = tonumber(words[2]), tonumber(words[3])
-		if b and r and b >= 1 and b <= 50 and r >= 0.05 and r <= 10 then
-			X.db.chatBurst, X.db.chatRate = b, r
-			X.chatTokens = nil
-			X:Print(string.format("Chat budget: %d message(s) in a burst, %.2f message(s) given back per second", b, r))
+		local l, w = tonumber(words[2]), tonumber(words[3])
+		if l and w and l >= 1 and l <= 50 and w >= 1 and w <= 60 then
+			X.db.chatLimit, X.db.chatWindow = l, w
+			X:Print(string.format("Chat budget: at most %d message(s) in any %d second(s)", l, w))
 		else
-			X:Print(string.format("Usage: /epgp chatbudget <burst> <per second>   (now %d and %.2f). Anti-spam: the addon never sends more than this; countdown digits are skipped when the budget is nearly empty.", X.db.chatBurst or 8, X.db.chatRate or 0.5))
+			X:Print(string.format("Usage: /epgp chatbudget <messages> <seconds>   (now %d in %d s). Anti-spam: the addon never sends more than this; countdown digits are skipped when the window is nearly full.", X.db.chatLimit or 10, X.db.chatWindow or 55))
 		end
 
 	elseif cmd == "chatstat" then
-		X:Print(string.format("Chat budget: %.1f / %d message(s) available, %.2f given back per second, %d message(s) waiting, minimum gap %.2f s",
-			X:ChatBudget(), X.db.chatBurst or 8, X.db.chatRate or 0.5, table.getn(X.chatQ), X:ChatGap()))
+		X:Print(string.format("Chat budget: %d message(s) sent in the last %d s (limit %d), %d message(s) waiting, minimum gap %.2f s",
+			X:ChatUsed(), X:ChatWindow(), X.db.chatLimit or 10, table.getn(X.chatQ), X:ChatGap()))
 
 	elseif cmd == "chattest" then
 		-- measures the server's limit: sends n numbered messages in /say, one every <interval> seconds (0 = all at once)
 		if words[2] == "stop" then X.chatTest = nil; X:Print("Chat test stopped."); return end
 		local n, iv = tonumber(words[2]), tonumber(words[3])
-		local same = (words[4] == "same")
+		local same, chan = false, "SAY"
+		for k = 4, 5 do
+			local w = words[k]
+			if w == "same" then same = true
+			elseif w == "raid" or w == "party" or w == "say" or w == "guild" then chan = string.upper(w) end
+		end
 		if n and iv and n >= 1 and n <= 60 and iv >= 0 and iv <= 10 then
-			X.chatTest = { n = n, interval = iv, sent = 0, t = iv, start = GetTime(), same = same }
-			X:Print(string.format("Chat test: %d %s message(s) in /say, one every %.1f s. Watch for the moment you get muted.", n, same and "identical" or "different", iv))
+			X.chatTest = { n = n, interval = iv, sent = 0, t = iv, start = GetTime(), same = same, chan = chan }
+			X:Print(string.format("Chat test: %d %s message(s) in /%s, one every %.1f s. Watch for the moment you get muted.", n, same and "identical" or "different", string.lower(chan), iv))
 		else
-			X:Print("Usage: /epgp chattest <count 1-60> <interval seconds 0-10> [same]   (numbered messages in /say, or the same text each time with 'same'; /epgp chattest stop)")
+			X:Print("Usage: /epgp chattest <count 1-60> <interval seconds 0-10> [same] [say|party|raid|guild]   (/epgp chattest stop)")
 		end
 
 	elseif cmd == "quality" then

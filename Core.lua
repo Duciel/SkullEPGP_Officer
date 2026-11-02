@@ -31,8 +31,8 @@ local DEFAULTS = {
 	autoOpen = true,
 	countdown = "full",                  -- chat countdown: "full" (10 s text + 3, 2, 1), "reduced" (10 s text only), "off"
 	chatGap = 0.5,                       -- minimum seconds between two chat messages of the addon
-	chatBurst = 8,                       -- chat budget: messages that can leave in a burst when the budget is full
-	chatRate = 0.5,                      -- chat budget: messages given back per second (the server mutes players who flood)
+	chatLimit = 10,                      -- chat budget: at most this many messages in any chatWindow seconds (measured: the server mutes the 12th)
+	chatWindow = 55,                     -- chat budget: length of the sliding window, in seconds (measured: between 33 and 55)
 	costs = { MIN = 5, NEED = 15, MAX = 45 },
 	players = {},
 	log = {},
@@ -441,27 +441,49 @@ function X:Channel()
 	return nil
 end
 
--- All chat messages of the addon go through a queue with a budget (like the server's flood protection, which
--- lets a burst through when nothing was sent for a while, then mutes):
---  * the budget holds at most chatBurst messages and gets chatRate messages back per second
---  * a message leaves when the budget has at least 1 message, and at least chatGap seconds after the previous one
+-- All chat messages of the addon go through a queue that respects a sliding-window budget: at most chatLimit
+-- messages in any chatWindow seconds (measured on the server: 11 messages in a burst go through, the 12th is
+-- refused with a 10 s mute; one message per second for 30 s is fine). Every message sent by this character is
+-- counted, including the ones typed by hand and the ones of other addons (SendChatMessage is wrapped).
+--  * a message leaves when the window is not full, and at least chatGap seconds after the previous one
 --  * important messages (announcement, closing, winner) wait for their turn, in order
---  * optional messages (countdown digits) are dropped when an important message is waiting or when the budget is
---    nearly empty: the last X.CHAT_RESERVE messages are kept for the officer's own chat (his own bid...)
-X.CHAT_RESERVE = 2
+--  * optional messages (countdown digits) are dropped when an important message is waiting or when the window is
+--    nearly full: the last X.CHAT_RESERVE slots are kept for the officer's own chat (his own bid...)
+X.CHAT_RESERVE = 3
 X.chatQ = {}
+X.chatLog = {}
 function X:ChatGap()
 	return self.CHAT_GAP or (self.db and self.db.chatGap) or 0.5
 end
 
-function X:ChatBudget()
-	local burst = (self.db and self.db.chatBurst) or 8
-	local rate = (self.db and self.db.chatRate) or 0.5
-	local now = GetTime()
-	if self.chatTokens == nil then self.chatTokens = burst; self.chatTokensT = now end
-	self.chatTokens = math.min(burst, self.chatTokens + (now - self.chatTokensT) * rate)
-	self.chatTokensT = now
-	return self.chatTokens
+function X:ChatWindow()
+	return (self.db and self.db.chatWindow) or 55
+end
+
+-- messages sent in the last chatWindow seconds
+function X:ChatUsed()
+	local now, win = GetTime(), self:ChatWindow()
+	local log = self.chatLog
+	while log[1] and now - log[1] >= win do table.remove(log, 1) end
+	return table.getn(log)
+end
+
+function X:ChatRemaining()
+	return ((self.db and self.db.chatLimit) or 10) - self:ChatUsed()
+end
+
+function X:NoteChat()
+	table.insert(self.chatLog, GetTime())
+end
+
+-- every message of this character counts, whoever sends it
+if SendChatMessage and not X.chatWrapped then
+	X.chatWrapped = true
+	local origSend = SendChatMessage
+	SendChatMessage = function(a1, a2, a3, a4)
+		X:NoteChat()
+		return origSend(a1, a2, a3, a4)
+	end
 end
 
 function X:RawSend(kind, msg)
@@ -478,7 +500,7 @@ end
 function X:QueueChat(kind, msg, optional)
 	-- a lone "|" (not part of a color / link code) is an "invalid escape code" for SendChatMessage in 1.12
 	msg = string.gsub(msg, "|([^cChHrRTtnN|])", "/%1")
-	if optional and (table.getn(self.chatQ) > 0 or self:ChatBudget() < 1 + self.CHAT_RESERVE) then return false end
+	if optional and (table.getn(self.chatQ) > 0 or self:ChatRemaining() < 1 + self.CHAT_RESERVE) then return false end
 	table.insert(self.chatQ, { kind = kind, msg = msg })
 	self:ChatTick()
 	return true
@@ -487,10 +509,9 @@ end
 function X:ChatTick()
 	if table.getn(self.chatQ) == 0 then return end
 	if (GetTime() - (self.lastChatSent or -100)) < self:ChatGap() then return end
-	if self:ChatBudget() < 1 then return end
+	if self:ChatRemaining() < 1 then return end
 	local m = table.remove(self.chatQ, 1)
 	self.lastChatSent = GetTime()
-	self.chatTokens = self.chatTokens - 1
 	self:RawSend(m.kind, m.msg)
 end
 

@@ -454,7 +454,7 @@ function X:ChatTestTick(elapsed)
 	if t.t < t.interval then return end
 	t.t = 0
 	t.sent = t.sent + 1
-	SendChatMessage(t.same and "a" or string.format("SkullEPGP anti-spam test %d/%d (%.1f s)", t.sent, t.n, GetTime() - t.start), "SAY")
+	SendChatMessage(t.same and "a" or string.format("SkullEPGP anti-spam test %d/%d (%.1f s)", t.sent, t.n, GetTime() - t.start), t.chan or "SAY")
 	if t.sent >= t.n then
 		self.chatTest = nil
 		self:Print("Chat test finished: " .. t.n .. " message(s) sent.")
