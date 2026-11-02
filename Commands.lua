@@ -17,7 +17,8 @@ local function help()
 	X:Print("  /epgp sync - send everybody's priority to the group (same as the Synchronize button)")
 	X:Print("  /epgp publish - broadcast priorities to players (player addon)")
 	X:Print("  /epgp cost <MIN|NEED|MAX> <n>  |  /epgp duration <s>  |  /epgp quality <0-5> (0 poor ... 4 epic, 5 legendary)  |  /epgp auto <on|off>")
-	X:Print("  /epgp countdown full|reduced|off - chat countdown during bidding (reduced by default: spam protection)")
+	X:Print("  /epgp countdown full|reduced|off - chat countdown during bidding (default full: 10 s text + 3, 2, 1)")
+	X:Print("  /epgp chatgap <seconds> - minimum delay between two chat messages of the addon (anti-spam, default 1)")
 	X:Print("  /epgp autoloot [on|off] - master looter: auto-loot items below the minimum quality + coins (never bind-on-pickup; hold SHIFT to skip)")
 	X:Print("  /epgp off | on - disable / enable the addon by hand (same as right-click on the minimap button)")
 	X:Print("  /epgp minimap [on|off] - show/hide the minimap button")
@@ -152,8 +153,13 @@ SlashCmdList["SKULLEPGP"] = function(msg)
 			X.db.countdown = v
 			X:Print("Chat countdown: " .. v .. " (applies to the next announcement)")
 		else
-			X:Print("Usage: /epgp countdown full|reduced|off   (now " .. (X.db.countdown or "reduced") .. "). full = 10 s text + 2, 1; reduced = 10 s text only; off = none. Players with the player addon see a timer anyway.")
+			X:Print("Usage: /epgp countdown full|reduced|off   (now " .. (X.db.countdown or "full") .. "). full = 10 s text + 3, 2, 1; reduced = 10 s text only; off = none.")
 		end
+
+	elseif cmd == "chatgap" then
+		local n = tonumber(words[2])
+		if n and n >= 0 and n <= 5 then X.db.chatGap = n; X:Print("Minimum delay between two chat messages: " .. n .. " s")
+		else X:Print("Usage: /epgp chatgap <0-5>   (now " .. tostring(X.db.chatGap or 1) .. " s). Anti-spam: the addon never sends two chat messages closer than this.") end
 
 	elseif cmd == "quality" then
 		local n = tonumber(words[2])

@@ -14,8 +14,7 @@ function X:QualityLabel(q)
 	local e = self.QUALITIES[q] or self.QUALITIES[4]
 	return e[2] .. e[1] .. "|r"
 end
-X.CHAT_GAP = 1.0   -- minimum seconds between two chat messages of the addon (the server mutes players who flood)
-X.COUNTDOWN_MARKS = { 10, 2, 1 } -- seconds left at which a reminder is posted in raid chat (10 = text, the rest = bare number)
+X.COUNTDOWN_MARKS = { 10, 3, 2, 1 } -- seconds left at which a reminder is posted in raid chat (10 = text, the rest = bare number: the last three digits)
 
 X.lootItems = {}
 X.roster = {}                            -- [lowercase name] = name
@@ -30,7 +29,8 @@ local DEFAULTS = {
 	minQuality = 4,                      -- minimum quality of listed items (4 = epic)
 	autoLoot = true,                     -- auto-loot items below minQuality (except bind-on-pickup) when master looter
 	autoOpen = true,
-	countdown = "reduced",               -- chat countdown: "full" (10 s text + 2, 1), "reduced" (10 s text only), "off"
+	countdown = "full",                  -- chat countdown: "full" (10 s text + 3, 2, 1), "reduced" (10 s text only), "off"
+	chatGap = 1.0,                       -- minimum seconds between two chat messages of the addon (anti-spam)
 	costs = { MIN = 5, NEED = 15, MAX = 45 },
 	players = {},
 	log = {},
@@ -456,11 +456,15 @@ function X:RawSend(kind, msg)
 	end
 end
 
+function X:ChatGap()
+	return self.CHAT_GAP or (self.db and self.db.chatGap) or 1.0
+end
+
 function X:QueueChat(kind, msg, optional)
 	-- a lone "|" (not part of a color / link code) is an "invalid escape code" for SendChatMessage in 1.12
 	msg = string.gsub(msg, "|([^cChHrRTtnN|])", "/%1")
-	local waiting = (GetTime() - (self.lastChatSent or -100)) < self.CHAT_GAP
-	if optional and (waiting or table.getn(self.chatQ) > 0) then return false end
+	-- an optional message (countdown digit) is dropped only when an important message is already waiting
+	if optional and table.getn(self.chatQ) > 0 then return false end
 	table.insert(self.chatQ, { kind = kind, msg = msg })
 	self:ChatTick()
 	return true
@@ -468,7 +472,7 @@ end
 
 function X:ChatTick()
 	if table.getn(self.chatQ) == 0 then return end
-	if (GetTime() - (self.lastChatSent or -100)) < self.CHAT_GAP then return end
+	if (GetTime() - (self.lastChatSent or -100)) < self:ChatGap() then return end
 	local m = table.remove(self.chatQ, 1)
 	self.lastChatSent = GetTime()
 	self:RawSend(m.kind, m.msg)

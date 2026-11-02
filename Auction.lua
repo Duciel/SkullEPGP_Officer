@@ -55,7 +55,7 @@ function X:StartAuction(link, duration, count)
 		entries = {},
 		marks = {},
 	}
-	local mode = self.db.countdown or "reduced"
+	local mode = self.db.countdown or "full"
 	for _, m in ipairs(self.COUNTDOWN_MARKS) do
 		-- no reminder for marks longer than the auction, nor (reduced) for the bare numbers, nor (off) at all
 		if m >= duration or mode == "off" or (mode == "reduced" and m < 10) then a.marks[m] = true end
