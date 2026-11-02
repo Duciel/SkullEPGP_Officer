@@ -30,7 +30,9 @@ local DEFAULTS = {
 	autoLoot = true,                     -- auto-loot items below minQuality (except bind-on-pickup) when master looter
 	autoOpen = true,
 	countdown = "full",                  -- chat countdown: "full" (10 s text + 3, 2, 1), "reduced" (10 s text only), "off"
-	chatGap = 1.0,                       -- minimum seconds between two chat messages of the addon (anti-spam)
+	chatGap = 0.5,                       -- minimum seconds between two chat messages of the addon
+	chatBurst = 8,                       -- chat budget: messages that can leave in a burst when the budget is full
+	chatRate = 0.5,                      -- chat budget: messages given back per second (the server mutes players who flood)
 	costs = { MIN = 5, NEED = 15, MAX = 45 },
 	players = {},
 	log = {},
@@ -439,12 +441,29 @@ function X:Channel()
 	return nil
 end
 
--- All chat messages of the addon go through a small queue: at most one message every X.CHAT_GAP seconds
--- (the server mutes players who send too many messages; with short announcements the announce, countdown,
--- closing and congratulation messages used to leave in a burst).
---  * important messages (announcement, closing, winner) always wait their turn, in order
---  * optional messages (countdown) are dropped when they would have to wait
+-- All chat messages of the addon go through a queue with a budget (like the server's flood protection, which
+-- lets a burst through when nothing was sent for a while, then mutes):
+--  * the budget holds at most chatBurst messages and gets chatRate messages back per second
+--  * a message leaves when the budget has at least 1 message, and at least chatGap seconds after the previous one
+--  * important messages (announcement, closing, winner) wait for their turn, in order
+--  * optional messages (countdown digits) are dropped when an important message is waiting or when the budget is
+--    nearly empty: the last X.CHAT_RESERVE messages are kept for the officer's own chat (his own bid...)
+X.CHAT_RESERVE = 2
 X.chatQ = {}
+function X:ChatGap()
+	return self.CHAT_GAP or (self.db and self.db.chatGap) or 0.5
+end
+
+function X:ChatBudget()
+	local burst = (self.db and self.db.chatBurst) or 8
+	local rate = (self.db and self.db.chatRate) or 0.5
+	local now = GetTime()
+	if self.chatTokens == nil then self.chatTokens = burst; self.chatTokensT = now end
+	self.chatTokens = math.min(burst, self.chatTokens + (now - self.chatTokensT) * rate)
+	self.chatTokensT = now
+	return self.chatTokens
+end
+
 function X:RawSend(kind, msg)
 	local ch = self:Channel()
 	if kind == "WARN" and ch == "RAID" and (IsRaidLeader() or IsRaidOfficer()) then
@@ -456,15 +475,10 @@ function X:RawSend(kind, msg)
 	end
 end
 
-function X:ChatGap()
-	return self.CHAT_GAP or (self.db and self.db.chatGap) or 1.0
-end
-
 function X:QueueChat(kind, msg, optional)
 	-- a lone "|" (not part of a color / link code) is an "invalid escape code" for SendChatMessage in 1.12
 	msg = string.gsub(msg, "|([^cChHrRTtnN|])", "/%1")
-	-- an optional message (countdown digit) is dropped only when an important message is already waiting
-	if optional and table.getn(self.chatQ) > 0 then return false end
+	if optional and (table.getn(self.chatQ) > 0 or self:ChatBudget() < 1 + self.CHAT_RESERVE) then return false end
 	table.insert(self.chatQ, { kind = kind, msg = msg })
 	self:ChatTick()
 	return true
@@ -473,8 +487,10 @@ end
 function X:ChatTick()
 	if table.getn(self.chatQ) == 0 then return end
 	if (GetTime() - (self.lastChatSent or -100)) < self:ChatGap() then return end
+	if self:ChatBudget() < 1 then return end
 	local m = table.remove(self.chatQ, 1)
 	self.lastChatSent = GetTime()
+	self.chatTokens = self.chatTokens - 1
 	self:RawSend(m.kind, m.msg)
 end
 

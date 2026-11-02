@@ -446,8 +446,26 @@ function X:LootTick(elapsed)
 	if self:LootSignature() ~= (self.lastLootSig or "") then self:PublishLoot() end
 end
 
+-- /epgp chattest : numbered messages in /say (directly, bypassing the budget) to find the server's flood limit
+function X:ChatTestTick(elapsed)
+	local t = self.chatTest
+	if not t then return end
+	t.t = t.t + (elapsed or 0)
+	if t.t < t.interval then return end
+	t.t = 0
+	t.sent = t.sent + 1
+	SendChatMessage(t.same and "a" or string.format("SkullEPGP anti-spam test %d/%d (%.1f s)", t.sent, t.n, GetTime() - t.start), "SAY")
+	if t.sent >= t.n then
+		self.chatTest = nil
+		self:Print("Chat test finished: " .. t.n .. " message(s) sent.")
+	elseif t.interval == 0 then
+		self:ChatTestTick(0)       -- all at once
+	end
+end
+
 function X:OnUpdate(elapsed)
 	self:ChatTick()
+	self:ChatTestTick(elapsed)
 	self:StatusTick(elapsed)
 	self:LootTick(elapsed)
 	self:FlushSync(elapsed)

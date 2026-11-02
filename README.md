@@ -89,11 +89,14 @@ Import: "replace all" (the Google Doc is the reference) or "update" (keeps playe
 ## Commands
 `/epgp announce [item] [xN] [seconds]` `close` `cancel` `award [player]` `bid <player> <MIN|NEED|MAX>` `show <player>`
 `set <player> <ep> <gp>` `ep <player> <+/-n>` `gp <player> <+/-n>` `raidep <n>` `remove <player>`
-`countdown <full|reduced|off>` `chatgap <seconds>` `autoloot [on|off]` `minimap [on|off]` `publish` `cost <MIN|NEED|MAX> <n>` `basegp <n>` `duration <s>` `quality <0-5>` `auto <on|off>`
+`countdown <full|reduced|off>` `chatbudget <burst> <rate>` `chatgap <seconds>` `chatstat` `chattest <n> <interval> [same]` `autoloot [on|off]` `minimap [on|off]` `publish` `cost <MIN|NEED|MAX> <n>` `basegp <n>` `duration <s>` `quality <0-5>` `auto <on|off>`
 `scan` `clear` `debug` `reset`
 
 ## Chat flood protection
-The server mutes players who send too many chat messages. All the chat messages of the addon (announcement, countdown, closing, congratulation) go through a queue that keeps **at least 1 second between two messages** (`/epgp chatgap <seconds>` changes it, 0 disables the protection). Important messages always wait their turn in order; a countdown digit is skipped only if an important message is already waiting.
+The server mutes players who send too many chat messages (measured on one server: 11 messages in 3 seconds went through from a silent start, then a 9 second mute). All the chat messages of the addon (announcement, countdown, closing, congratulation) therefore go through a queue with a **budget**: it holds `burst` messages (default 8) and gets `rate` messages back per second (default 0.5), with at least 0.5 s between two messages.
+- Important messages (announcement, closing, winner) wait for their turn, in order. A countdown digit is skipped when an important message is waiting or when the budget is nearly empty (the last 2 messages are kept for your own chat, for example your bid).
+- `/epgp chatbudget <burst> <per second>`, `/epgp chatgap <seconds>`, `/epgp chatstat` (shows the budget left).
+- `/epgp chattest <count> <interval> [same]` sends numbered messages in /say (or the same text each time with `same`) to measure your server's limit: for example `chattest 20 0` (all at once), then `chattest 30 1`. Use `/epgp chattest stop` to cancel. Adjust the budget just under what you measure.
 - `/epgp countdown full|reduced|off` chooses the chat countdown: `full` (default) = "10 seconds left" + the last three digits "3", "2", "1"; `reduced` = the "10 seconds left" text only; `off` = none.
 - The officer's own bid is typed in the chat like everybody else's, so the whole raid sees it.
 
