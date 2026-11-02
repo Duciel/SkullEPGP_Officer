@@ -100,6 +100,7 @@ All the chat messages of the addon (announcement, countdown, closing, congratula
 - A countdown digit is skipped when an important message is waiting or when fewer than 4 slots are left (3 are kept for the closing, the winner and your own chat).
 - `/epgp chatstat` shows how many messages the window holds, `/epgp chatbudget <messages> <seconds>` and `/epgp chatgap <seconds>` change the budget. Tune them to your measurements: the less restrictive, the more risk.
 - `/epgp chattest <count> <interval> [same] [say|party|raid|guild]` sends numbered messages (or the same text with `same`) to measure the limit, for example `chattest 14 5`. `/epgp chattest stop` cancels. Wait for the mute to end between two tests.
+- **Closing + Gz in one message:** when the bids close, the ranking message (top 3) is held back for 8 seconds (`closeDelay`). If you award the item in that time, the "Gz" message carries the ranking, so one chat message is saved per item; otherwise the ranking is sent alone when the delay is over. "No participants" and "cancelled" are sent at once.
 - `/epgp countdown full|reduced|off` chooses the chat countdown: `full` (default) = "10 seconds left" + the last three digits "3", "2", "1"; `reduced` = the "10 seconds left" text only; `off` = none.
 - The officer's own bid is typed in the chat like everybody else's, so the whole raid sees it.
 

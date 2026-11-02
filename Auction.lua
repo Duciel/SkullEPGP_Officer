@@ -264,6 +264,25 @@ end
 -------------------------------------------------------------------------------
 -- Closing / cancelling / awarding
 -------------------------------------------------------------------------------
+X.CLOSE_DELAY = 8      -- seconds the ranking message is held back after the bids close (the Gz can carry it instead)
+
+function X:RankingText(rank)
+	local parts = {}
+	for i = 1, math.min(3, table.getn(rank)) do
+		table.insert(parts, i .. ") " .. describe(rank[i]))
+	end
+	return table.concat(parts, "; ")
+end
+
+-- sends the held ranking message (no award within the delay)
+function X:FlushRanking()
+	local a = self.auction
+	if a and a.rankText then
+		self:SendChat(a.link .. " - Bidding closed. " .. a.rankText)
+		a.rankText = nil
+	end
+end
+
 function X:CloseAuction()
 	local a = self.auction
 	if not a or a.state ~= "open" then return end
@@ -272,11 +291,10 @@ function X:CloseAuction()
 	if table.getn(rank) == 0 then
 		self:SendChat(a.link .. " - Bidding closed: no participants.")
 	else
-		local parts = {}
-		for i = 1, math.min(3, table.getn(rank)) do
-			table.insert(parts, i .. ") " .. describe(rank[i]))
-		end
-		self:SendChat(a.link .. " - Bidding closed. " .. table.concat(parts, "; "))
+		-- the ranking message is held back for a few seconds: if the officer awards the item in the meantime,
+		-- the "Gz" message carries the ranking (one chat message less; the server mutes players who send too many)
+		a.rankText = self:RankingText(rank)
+		a.rankSendAt = GetTime() + (self.db.closeDelay or self.CLOSE_DELAY)
 	end
 	self:Comm("END;" .. a.id)
 	if self.UI then self.UI:OnAuctionChanged() end
@@ -348,6 +366,16 @@ function X:DoAward(r)
 		gz = string.format("Gz %s => %s (%s, -%d GP)", r.char, a.link, r.bid, r.cost)
 	else
 		gz = string.format("Gz %s => %s (roll %s)", r.char, a.link, tostring(r.roll or 0))
+	end
+	if a.rankText then
+		-- the closing message was not sent yet: the Gz carries the ranking (kept under the 255 characters of a chat message)
+		local full = gz .. " - " .. a.rankText
+		while string.len(full) > 250 and string.find(a.rankText, ";") do
+			a.rankText = string.gsub(a.rankText, ";[^;]*$", "")
+			full = gz .. " - " .. a.rankText
+		end
+		if string.len(full) <= 250 then gz = full end
+		a.rankText = nil
 	end
 	self:SendChat(gz)
 	self:Comm("WIN;" .. a.id .. ";" .. r.char .. ";" .. r.bid .. ";" .. r.cost)
@@ -479,6 +507,7 @@ function X:OnUpdate(elapsed)
 	self.tick = self.tick + (elapsed or 0)
 	if self.tick < 0.25 then return end
 	self.tick = 0
+	if a.rankText and a.rankSendAt and GetTime() >= a.rankSendAt then self:FlushRanking() end
 	if a.state == "open" then
 		local remaining = a.endTime - GetTime()
 		for _, m in ipairs(self.COUNTDOWN_MARKS) do
