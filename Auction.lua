@@ -55,8 +55,10 @@ function X:StartAuction(link, duration, count)
 		entries = {},
 		marks = {},
 	}
+	local mode = self.db.countdown or "reduced"
 	for _, m in ipairs(self.COUNTDOWN_MARKS) do
-		if m >= duration then a.marks[m] = true end
+		-- no reminder for marks longer than the auction, nor (reduced) for the bare numbers, nor (off) at all
+		if m >= duration or mode == "off" or (mode == "reduced" and m < 10) then a.marks[m] = true end
 	end
 	self.auction = a
 
@@ -445,6 +447,7 @@ function X:LootTick(elapsed)
 end
 
 function X:OnUpdate(elapsed)
+	self:ChatTick()
 	self:StatusTick(elapsed)
 	self:LootTick(elapsed)
 	self:FlushSync(elapsed)
@@ -465,9 +468,9 @@ function X:OnUpdate(elapsed)
 				a.marks[m] = true
 				if remaining > 0 then
 					if m >= 10 then
-						self:SendChat(string.format("%s - %d seconds left (MIN / NEED / MAX or /roll)", a.link, m))
+						self:SendChat(string.format("%s - %d seconds left (MIN / NEED / MAX or /roll)", a.link, m), true)
 					else
-						self:SendChat(tostring(m))
+						self:SendChat(tostring(m), true)
 					end
 				end
 			end

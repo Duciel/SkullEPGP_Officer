@@ -89,8 +89,14 @@ Import: "replace all" (the Google Doc is the reference) or "update" (keeps playe
 ## Commands
 `/epgp announce [item] [xN] [seconds]` `close` `cancel` `award [player]` `bid <player> <MIN|NEED|MAX>` `show <player>`
 `set <player> <ep> <gp>` `ep <player> <+/-n>` `gp <player> <+/-n>` `raidep <n>` `remove <player>`
-`autoloot [on|off]` `minimap [on|off]` `publish` `cost <MIN|NEED|MAX> <n>` `basegp <n>` `duration <s>` `quality <0-5>` `auto <on|off>`
+`countdown <full|reduced|off>` `autoloot [on|off]` `minimap [on|off]` `publish` `cost <MIN|NEED|MAX> <n>` `basegp <n>` `duration <s>` `quality <0-5>` `auto <on|off>`
 `scan` `clear` `debug` `reset`
+
+## Chat flood protection
+The server mutes players who send too many chat messages, and short announcements (5-7 s) used to produce a burst (announcement, countdown, closing, congratulation). Now:
+- every chat message of the addon goes through a queue with **at least 1 second between two messages**; important ones (announcement, closing, winner) always wait their turn in order, the optional countdown messages are simply skipped when they would have to wait;
+- `/epgp countdown full|reduced|off` chooses the chat countdown: `full` = "10 seconds left" + "2" + "1", `reduced` (default) = the "10 seconds left" text only (never for announcements shorter than that), `off` = none. Players with the player addon always see a timer in their window;
+- with the player addon installed on the officer's character, the officer's own MIN / NEED / MAX buttons send the bid straight to the officer addon: no chat message at all.
 
 ## Addon protocol (used by the SkullEPGP_Player addon)
 Prefix `SKULLEPGP`, channel RAID/PARTY (replies to `REQ` go to the group too: 1.12 has no whisper addon channel). Fields are separated by `;`, the item link is always last:

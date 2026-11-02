@@ -14,6 +14,7 @@ function X:QualityLabel(q)
 	local e = self.QUALITIES[q] or self.QUALITIES[4]
 	return e[2] .. e[1] .. "|r"
 end
+X.CHAT_GAP = 1.0   -- minimum seconds between two chat messages of the addon (the server mutes players who flood)
 X.COUNTDOWN_MARKS = { 10, 2, 1 } -- seconds left at which a reminder is posted in raid chat (10 = text, the rest = bare number)
 
 X.lootItems = {}
@@ -29,6 +30,7 @@ local DEFAULTS = {
 	minQuality = 4,                      -- minimum quality of listed items (4 = epic)
 	autoLoot = true,                     -- auto-loot items below minQuality (except bind-on-pickup) when master looter
 	autoOpen = true,
+	countdown = "reduced",               -- chat countdown: "full" (10 s text + 2, 1), "reduced" (10 s text only), "off"
 	costs = { MIN = 5, NEED = 15, MAX = 45 },
 	players = {},
 	log = {},
@@ -437,23 +439,47 @@ function X:Channel()
 	return nil
 end
 
-function X:SendChat(msg)
-	-- a lone "|" (not part of a color / link code) is an "invalid escape code" for SendChatMessage in 1.12
-	msg = string.gsub(msg, "|([^cChHrRTtnN|])", "/%1")
+-- All chat messages of the addon go through a small queue: at most one message every X.CHAT_GAP seconds
+-- (the server mutes players who send too many messages; with short announcements the announce, countdown,
+-- closing and congratulation messages used to leave in a burst).
+--  * important messages (announcement, closing, winner) always wait their turn, in order
+--  * optional messages (countdown) are dropped when they would have to wait
+X.chatQ = {}
+function X:RawSend(kind, msg)
 	local ch = self:Channel()
-	if ch then SendChatMessage(msg, ch) else self:Print(msg) end
-end
-
-function X:SendWarning(msg)
-	msg = string.gsub(msg, "|([^cChHrRTtnN|])", "/%1")
-	local ch = self:Channel()
-	if ch == "RAID" and (IsRaidLeader() or IsRaidOfficer()) then
+	if kind == "WARN" and ch == "RAID" and (IsRaidLeader() or IsRaidOfficer()) then
 		SendChatMessage(msg, "RAID_WARNING")
 	elseif ch then
 		SendChatMessage(msg, ch)
 	else
 		self:Print(msg)
 	end
+end
+
+function X:QueueChat(kind, msg, optional)
+	-- a lone "|" (not part of a color / link code) is an "invalid escape code" for SendChatMessage in 1.12
+	msg = string.gsub(msg, "|([^cChHrRTtnN|])", "/%1")
+	local waiting = (GetTime() - (self.lastChatSent or -100)) < self.CHAT_GAP
+	if optional and (waiting or table.getn(self.chatQ) > 0) then return false end
+	table.insert(self.chatQ, { kind = kind, msg = msg })
+	self:ChatTick()
+	return true
+end
+
+function X:ChatTick()
+	if table.getn(self.chatQ) == 0 then return end
+	if (GetTime() - (self.lastChatSent or -100)) < self.CHAT_GAP then return end
+	local m = table.remove(self.chatQ, 1)
+	self.lastChatSent = GetTime()
+	self:RawSend(m.kind, m.msg)
+end
+
+function X:SendChat(msg, optional)
+	return self:QueueChat("CHAT", msg, optional)
+end
+
+function X:SendWarning(msg)
+	return self:QueueChat("WARN", msg)
 end
 
 -- Addon message to the group (protocol read by the player addon)
